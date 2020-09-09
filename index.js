@@ -1,16 +1,18 @@
 'use strict';
 
 require('dotenv').config();
-var timing = require("time-anything");
+const express = require('express');
+const bodyParser = require('body-parser');
+const timing = require("time-anything");
 
-async function main(name = 'projects/my-project/secrets/my-secret') {
-  // [START secretmanager_get_secret]
-  /**
-   * TODO(developer): Uncomment these variables before running the sample.
-   */
-  // const name = 'projects/my-project/secrets/my-secret';
+const app = express();
 
-  // Imports the Secret Manager library
+app.set('case sensitive routing', true);
+app.use(bodyParser.json());
+
+async function getSecretData(secretName, version = 'latest') {
+  timing.start();
+
   const {SecretManagerServiceClient} = require('@google-cloud/secret-manager');
 
   // Instantiates a client
@@ -19,28 +21,36 @@ async function main(name = 'projects/my-project/secrets/my-secret') {
     keyFilename: process.env.GCP_SECRET_MANAGER_API_CREDENTIALS_FILE
   });
 
-  async function getSecret() {
-    timing.start();
-    const [secret] = await client.accessSecretVersion({
-      name: name,
-    });
+  const [secret] = await client.accessSecretVersion({
+    name: 'projects/credentials-vault-test/secrets/' + secretName + '/versions/' + version,
+  });
 
-    // const policy = secret.replication.replication;
+  timing.end();
 
-    // console.info(`Found secret ${secret.name} (${policy})`);
-
-    console.log('SECRET DATA:\n', secret.payload.data.toString('utf8'));
-
-    timing.end();
-
-    console.log("Timing Ms = " + timing.timeTakenMs() + "ms");
-    console.log("Timing Ns = " + timing.timeTakenNanoSeconds() + "ns");
+  let response = {
+    key_data: secret.payload.data.toString('utf8'),
+    timming_ms: timing.timeTakenMs()
   }
 
-  getSecret();
-  // [END secretmanager_get_secret]
+  return response;
 }
 
-const args = process.argv.slice(2);
+app.get('/secret/:key/:version?', async (req, res) => {
+  try {
+    let data = await getSecretData(req.params.key, req.params.version);
 
-main(...args).catch(console.error);
+    res.status(200).json(data).end();
+  } catch (error) {
+    res.status(500).send(error).end();
+  }
+});
+
+if (module === require.main) {
+  const PORT = process.env.PORT || 8080;
+  app.listen(PORT, () => {
+    console.log(`App listening on port ${PORT}`);
+    console.log('Press Ctrl+C to quit.');
+  });
+}
+
+module.exports = app;

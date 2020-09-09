@@ -1,0 +1,9 @@
+FROM gcr.io/google_appengine/nodejs10
+
+ADD . /app
+WORKDIR /app
+
+RUN curl -o- -L https://yarnpkg.com/install.sh | bash
+RUN yarn install
+ENV PORT=8080
+ENTRYPOINT ["yarn", "start"]
