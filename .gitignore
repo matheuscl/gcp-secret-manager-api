@@ -1,0 +1,3 @@
+.env
+apikey.json
+node_modules/**
